@@ -1,0 +1,39 @@
+name: RSS Monitor
+on:
+  schedule:
+    - cron: "*/30 * * * *"  # 每30分钟检查一次
+  workflow_dispatch:        # 允许手动触发
+
+jobs:
+  monitor-rss:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 步骤1：获取RSS最新内容
+      - name: Parse RSS feed
+        id: parse-rss
+        run: |
+          # 安装依赖（xmlstarlet用于解析XML）
+          sudo apt-get -qq install xmlstarlet
+          
+          # 下载RSS内容
+          curl -s "https://nitter.poast.org/elonmusk/rss" > feed.xml
+          
+          # 提取最新条目标题和链接
+          LATEST_TITLE=$(xmlstarlet sel -t -v "//item[1]/title" feed.xml | head -1)
+          LATEST_LINK=$(xmlstarlet sel -t -v "//item[1]/link" feed.xml | head -1)
+          
+          # 存储输出变量
+          echo "title=$LATEST_TITLE" >> $GITHUB_OUTPUT
+          echo "link=$LATEST_LINK" >> $GITHUB_OUTPUT
+
+      # 步骤2：推送通知（微信示例）
+      - name: Send Notification
+        run: |
+          curl -X POST "https://wxpusher.zjiecode.com/api/send/message" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "appToken": "${{ AT_yM0opHg0lflmXF0lgjBHI1PReqT2GNAk }}",
+            "content": "📢 新内容更新\n标题: ${{ steps.parse-rss.outputs.title }}\n链接: ${{ steps.parse-rss.outputs.link }}",
+            "uid": "${{ UID_fGIbty1MomMiPuxSmqwdugIFDggm }}"
+          }'
