@@ -1,39 +1,99 @@
-name: RSS Monitor
+name: Robust RSS Notifier
 on:
   schedule:
     - cron: "*/30 * * * *"  # 每30分钟检查一次
-  workflow_dispatch:        # 允许手动触发
+  workflow_dispatch:         # 允许手动触发测试
 
 jobs:
-  monitor-rss:
+  rss-monitor:
     runs-on: ubuntu-latest
-    
     steps:
-      # 步骤1：获取RSS最新内容
-      - name: Parse RSS feed
-        id: parse-rss
+      - name: Fetch and Push Notification
         run: |
-          # 安装依赖（xmlstarlet用于解析XML）
-          sudo apt-get -qq install xmlstarlet
+          #######################################
+          # 配置区（直接修改以下参数即可）       #
+          #######################################
           
-          # 下载RSS内容
-          curl -s "https://rsshub.app/bing/daily" > feed.xml
+          # WxPusher 配置（必填）
+          WXPUSHER_TOKEN="AT_8dVtF3Ao4hEvmxZ65RZoaD39tfD5arNa"  # 替换为你的AppToken
+          WXPUSHER_UID="UID_fGIbty1MomMiPuxSmqwdugIFDggm"       # 替换为你的用户UID
           
-          # 提取最新条目标题和链接
-          LATEST_TITLE=$(xmlstarlet sel -t -v "//item[1]/title" feed.xml | head -1)
-          LATEST_LINK=$(xmlstarlet sel -t -v "//item[1]/link" feed.xml | head -1)
+          # RSS 源配置（支持任何标准RSS）
+          RSS_URL="https://rsshub.app/twitter/user/elonmusk"  # 替换为目标源
           
-          # 存储输出变量
-          echo "title=$LATEST_TITLE" >> $GITHUB_OUTPUT
-          echo "link=$LATEST_LINK" >> $GITHUB_OUTPUT
+          # 通知内容模板
+          MESSAGE_TEMPLATE="📅【更新通知】\n\n标题：{title}\n\n链接：{link}"
 
-      # 步骤2：推送通知（微信示例）
-      - name: Send Notification
-        run: |
-          curl -X POST "https://wxpusher.zjiecode.com/api/send/message" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "appToken": "AT_8dVtF3Ao4hEvmxZ65RZoaD39tfD5arNa",
-            "content": "标题：${{ steps.parse-rss.outputs.title }}\n链接：${{ steps.parse-rss.outputs.link }}",
-            "uid": "UID_fGIbty1MomMiPuxSmqwdugIFDggm"
-          }'
+          #######################################
+          # 核心逻辑（无需修改）                #
+          #######################################
+          
+          # 函数：安全获取XML节点值
+          # 参数: $1=XML内容, $2=XPath表达式
+          get_xml_value() {
+            echo "$1" | xmlstarlet sel -t -v "$2" 2>/dev/null || echo ""
+          }
+
+          # 函数：发送通知到微信
+          send_notification() {
+            local title="$1"
+            local link="$2"
+            
+            # 内容消毒（移除非法字符）
+            local clean_title=$(echo "$title" | tr -d '\n\r"' | head -c 200)
+            local clean_link=$(echo "$link" | grep -E '^https?://' || echo "https://github.com")
+            
+            # 使用模板生成内容
+            local content=$(echo "$MESSAGE_TEMPLATE" | 
+              sed "s/{title}/$clean_title/g" |
+              sed "s/{link}/$clean_link/g")
+            
+            # 构建JSON请求体（使用jq确保格式正确）
+            local json_payload=$(jq -n \
+              --arg token "$WXPUSHER_TOKEN" \
+              --arg uid "$WXPUSHER_UID" \
+              --arg content "$content" \
+              '{
+                appToken: $token,
+                content: $content,
+                uid: $uid
+              }')
+            
+            # 发送请求（带超时和重试）
+            curl -X POST "https://wxpusher.zjiecode.com/api/send/message" \
+              -H "Content-Type: application/json" \
+              -d "$json_payload" \
+              --retry 2 \
+              --max-time 30
+          }
+
+          #######################################
+          # 主执行流程                          #
+          #######################################
+          
+          echo "=== 开始获取RSS数据 ==="
+          
+          # 获取RSS内容（带失败重试）
+          RSS_CONTENT=$(curl -fsL --retry 3 "$RSS_URL" || echo "
+            <rss>
+              <channel>
+                <item>
+                  <title>[RSS服务不可用] 最后检测于 $(date +'%Y-%m-%d %H:%M')</title>
+                  <link>https://status.github.com</link>
+                </item>
+              </channel>
+            </rss>")
+          
+          # 解析关键数据
+          ITEM_TITLE=$(get_xml_value "$RSS_CONTENT" "//item[1]/title")
+          ITEM_LINK=$(get_xml_value "$RSS_CONTENT" "//item[1]/link")
+          
+          echo "解析结果："
+          echo "标题: $ITEM_TITLE"
+          echo "链接: $ITEM_LINK"
+          
+          # 发送通知
+          echo "=== 开始推送通知 ==="
+          send_notification "$ITEM_TITLE" "$ITEM_LINK"
+          
+          echo "=== 任务完成 ==="
