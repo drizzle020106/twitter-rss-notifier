@@ -17,7 +17,7 @@ jobs:
           sudo apt-get -qq install xmlstarlet
           
           # 下载RSS内容
-          curl -s "https://nitter.poast.org/elonmusk/rss" > feed.xml
+          curl -s "https://rsshub.app/bing/daily" > feed.xml
           
           # 提取最新条目标题和链接
           LATEST_TITLE=$(xmlstarlet sel -t -v "//item[1]/title" feed.xml | head -1)
@@ -34,6 +34,6 @@ jobs:
           -H "Content-Type: application/json" \
           -d '{
             "appToken": "AT_8dVtF3Ao4hEvmxZ65RZoaD39tfD5arNa",
-            "content": "'"$CONTENT"'",
+            "content": "标题：${{ steps.parse-rss.outputs.title }}\n链接：${{ steps.parse-rss.outputs.link }}",
             "uid": "UID_fGIbty1MomMiPuxSmqwdugIFDggm"
           }'
