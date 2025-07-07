@@ -35,5 +35,5 @@ jobs:
           -d '{
             "appToken": "${{ secrets.WXPUSHER_TOKEN }}",
             "content": "📢 新内容更新\n标题: ${{ steps.parse-rss.outputs.title }}\n链接: ${{ steps.parse-rss.outputs.link }}",
-            "topicId": "41341"  # ← 替换为实际主题ID
+            "topicId": "41341"
           }'
