@@ -34,6 +34,6 @@ jobs:
           -H "Content-Type: application/json" \
           -d '{
             "appToken": "AT_8dVtF3Ao4hEvmxZ65RZoaD39tfD5arNa",
-            "content": "${{ steps.parse-rss.outputs.title }}",
+            "content": "'"$CONTENT"'",
             "uid": "UID_fGIbty1MomMiPuxSmqwdugIFDggm"
           }'
