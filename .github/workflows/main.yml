@@ -33,7 +33,7 @@ jobs:
           curl -X POST "https://wxpusher.zjiecode.com/api/send/message" \
           -H "Content-Type: application/json" \
           -d '{
-            "appToken": "${{ secrets.WXPUSHER_TOKEN }}",
-            "content": "📢 新内容更新\n标题: ${{ steps.parse-rss.outputs.title }}\n链接: ${{ steps.parse-rss.outputs.link }}",
-            "topicId": "41341"
+            "appToken": "AT_8dVtF3Ao4hEvmxZ65RZoaD39tfD5arNa",  # ← 直接填写Token
+            "content": "${{ steps.parse-rss.outputs.title }}",
+            "uid": "UID_fGIbty1MomMiPuxSmqwdugIFDggm"             # ← 直接填写UID
           }'
